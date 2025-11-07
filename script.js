@@ -1,98 +1,56 @@
-/* -------------------------
-  PROFILE: Edit these values
-------------------------- */
-const PROFILE = {
-  name: "Shaik Saida Vali",
-  githubUser: "urstrulysaida",
-  resume: "https://docs.google.com/document/d/1UBfhBcEI_hzWj1KOlvlD4vjbkhmVV1ZNFayQrkroXZA/edit",
-  linkedin: "https://in.linkedin.com/in/shaiksaidavali",
-  email: "shaiksaidavali.in@gmail.com",
-  phone: "+91 7674012184",
-};
-
-/* -------------------------
-  DOM helpers & setup
-------------------------- */
+const PROFILE = { githubUser: "urstrulysaida" };
 document.getElementById("year").textContent = new Date().getFullYear();
 
-/* theme toggle persisted in localStorage */
+/* THEME TOGGLE */
 const themeToggle = document.getElementById("theme-toggle");
 const root = document.documentElement;
 const saved = localStorage.getItem("theme");
 if (saved) root.setAttribute("data-theme", saved);
+themeToggle.textContent = root.getAttribute("data-theme") === "dark" ? "☀️" : "🌙";
 themeToggle.addEventListener("click", () => {
   const current = root.getAttribute("data-theme");
   const next = current === "dark" ? "" : "dark";
   if (next) root.setAttribute("data-theme", next);
   else root.removeAttribute("data-theme");
   localStorage.setItem("theme", next);
-  themeToggle.setAttribute("aria-pressed", next === "dark");
   themeToggle.textContent = next === "dark" ? "☀️" : "🌙";
 });
 
-/* set initial toggle text */
-themeToggle.textContent = root.getAttribute("data-theme") === "dark" ? "☀️" : "🌙";
+/* Scroll reveal animations */
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach((entry) => {
+    if (entry.isIntersecting) entry.target.classList.add("visible");
+  });
+}, { threshold: 0.2 });
+document.querySelectorAll(".card, .hero, .project-card, .skill, .timeline-item").forEach((el) => observer.observe(el));
 
-/* -------------------------
-  GitHub repos fetcher
-  - public REST API, unauthenticated
-  - fallback: show seed projects already in HTML
-------------------------- */
+/* Fetch GitHub Repos */
 async function fetchRepos(username, limit = 6) {
   const noteEl = document.querySelector(".github-fetch-note");
+  const grid = document.getElementById("projects-grid");
   try {
     const res = await fetch(`https://api.github.com/users/${username}/repos?per_page=${limit}&sort=updated`);
-    if (!res.ok) throw new Error("GitHub API error: " + res.status);
+    if (!res.ok) throw new Error(res.status);
     const repos = await res.json();
-    if (!Array.isArray(repos) || repos.length === 0) {
-      noteEl.textContent = "No public repositories found or rate-limited.";
-      return;
-    }
-    noteEl.textContent = `Showing ${repos.length} latest public repos.`;
-    renderRepos(repos);
-  } catch (err) {
-    console.warn(err);
-    document.querySelector(".github-fetch-note").textContent = "Could not fetch GitHub repos. Showing seeded projects.";
+    grid.innerHTML = "";
+    repos.forEach(r => {
+      const el = document.createElement("article");
+      el.className = "project-card visible";
+      el.innerHTML = `
+        <h3><a href="${r.html_url}" target="_blank">${r.name}</a></h3>
+        <p>${r.description || "No description"}</p>
+        <p class="meta">⭐ ${r.stargazers_count} • Updated ${new Date(r.updated_at).toLocaleDateString()}</p>
+      `;
+      grid.appendChild(el);
+    });
+    noteEl.textContent = `Showing ${repos.length} repositories.`;
+  } catch {
+    noteEl.textContent = "GitHub API failed. Showing static projects.";
   }
 }
+fetchRepos(PROFILE.githubUser);
 
-function renderRepos(repos) {
-  const grid = document.getElementById("projects-grid");
-  // remove seeded project cards (3) before rendering dynamic ones
-  grid.innerHTML = "";
-  repos.forEach(r => {
-    const article = document.createElement("article");
-    article.className = "project-card";
-    article.innerHTML = `
-      <h3><a href="${r.html_url}" target="_blank" rel="noopener">${escapeHtml(r.name)}</a></h3>
-      <p>${escapeHtml(r.description || "No description provided.")}</p>
-      <p class="meta">⭐ ${r.stargazers_count} • Updated ${new Date(r.updated_at).toLocaleDateString()}</p>
-    `;
-    grid.appendChild(article);
-  });
-}
-
-/* small helper to avoid bare HTML injection */
-function escapeHtml(str){
-  return String(str).replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;");
-}
-
-/* -------------------------
-  Contact form — mailto fallback
-  Replace with serverless endpoint for production.
-------------------------- */
-const contactForm = document.getElementById("contact-form");
-contactForm.addEventListener("submit", (e) => {
-  // default behavior will open user's mail client because action=mailto
-  // Provide immediate feedback.
-  alert("Your message will open in your email client. For production use integrate a serverless form endpoint.");
+/* Contact Form */
+document.getElementById("contact-form").addEventListener("submit", () => {
+  alert("Mail will open in your email client.");
 });
-
-/* -------------------------
-  Initialize
-------------------------- */
-(function init(){
-  // update hero contact info automatically (if you want to)
-  // (optional) populate any dynamic fields with PROFILE
-  fetchRepos(PROFILE.githubUser, 6);
-})();
